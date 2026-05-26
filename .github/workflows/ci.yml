@@ -14,6 +14,7 @@ jobs:
   labels:
     name: Labels
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - name: Validate PR type label
         uses: actions/github-script@v7
@@ -105,6 +106,7 @@ jobs:
 
   test:
     needs: labels
+    if: always() && (github.event_name != 'pull_request' || needs.labels.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
