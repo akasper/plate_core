@@ -28,6 +28,7 @@ last_verified_commit: "0dcdda0"
 | Feedback resolution merge gate | Implemented | — | #63 | `feedback-resolution-check.yml` fails PRs with unresolved active review threads or `reviewDecision=CHANGES_REQUESTED`, enabling auto-merge only after review commentary is addressed | `AGENTS.md §Third-Party Agent Feedback`, `.github/copilot-instructions.md`, `.github/workflows/feedback-resolution-check.yml` | Unreleased | 2026-05-26 |
 | PowerShell-safe multiline PR/issue bodies guidance | Implemented | #62 | #93 | Added "CLI Body Patterns (PowerShell safety)" section to `AGENTS.md` with --body-file + here-string examples; prevents literal \n in gh commands from PowerShell | `AGENTS.md` | Unreleased | 2026-05-27 |
 | Repository hygiene: binary artifact removal (.pyc) | Implemented | #91 | TBD | `git rm --cached` on all 8 committed .pyc files (src/plate_core/__pycache__/* and tests/__pycache__/*) + hardened .gitignore with full Python + common ancillary patterns; `git ls-files` confirms zero binaries tracked | `.gitignore`, `CURRENT.md` | Unreleased | 2026-05-27 |
+| CI: Labels check no longer appears to hang | Implemented | #95 | TBD | Added `concurrency` (cancel-in-progress) + tight `timeout-minutes: 2` to the `labels` job in `ci.yml`. Stale runs are cancelled the moment a newer label or synchronize event arrives for the same PR, eliminating the perception of hanging checks during rapid iteration. | `.github/workflows/ci.yml`, `CURRENT.md` | Unreleased | 2026-05-27 |
 
 ## Operational Behavior
 
