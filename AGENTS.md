@@ -166,35 +166,37 @@ gh api -X PUT repos/OWNER/REPO/actions/permissions/workflow \
 
 ## Third-Party Agent Feedback
 
-When a third-party agent (Devin, OpenHands, etc.) leaves feedback on a PR that is **not** already labeled `Feedback Response`, the `.github/workflows/plates-address-pr-feedback.yml` workflow posts a structured `@copilot` trigger comment directly on that same PR. The automation uses `COPILOT_TRIGGER_PAT` (preferred) with fallback to `GITHUB_TOKEN`, applies a dedupe marker, and intentionally avoids creating a new issue or opening a separate PR. `Feedback Response` PRs are already in the dedicated response lane and are skipped by that workflow. The Copilot Coding Agent should:
+Preferred flow is now **local babysitting** driven by `gh plate pr babysit <number>`. CI is intentionally narrowed to enforcement-only (`feedback-resolution` check). Use this loop:
 
-1. Review all open inline comments and the overall review body from the named reviewer on the linked PR
-2. For any comment that includes a GitHub code suggestion (` ```suggestion ` block): apply it directly as a commit **unless** the suggestion introduces a bug or relies on a false assumption — if you skip a suggestion, reply to that thread with a brief explanation
-3. For all other actionable comments: push a code change or reply explaining why no change is needed
-4. After addressing each comment (via code change, applied suggestion, or explanatory reply), resolve its review thread using the GitHub GraphQL `resolveReviewThread` mutation:
+1. Start or join babysitting locally (`gh plate pr babysit <number> [--act] [--watch]`) or via `/agent plate` ("babysit PR <number>") using MCP tools `plate_pr_babysit` + `plate_resolve_review_thread`
+2. Query unresolved review threads and identify actionable third-party agent feedback
+3. Review all open inline comments and the overall review body from the named reviewer on the linked PR
+4. For any comment that includes a GitHub code suggestion (` ```suggestion ` block): apply it directly as a commit **unless** the suggestion introduces a bug or relies on a false assumption — if you skip a suggestion, reply to that thread with a brief explanation
+5. For all other actionable comments: push a code change or reply explaining why no change is needed
+6. After addressing each comment (via code change, applied suggestion, or explanatory reply), resolve its review thread using the GitHub GraphQL `resolveReviewThread` mutation:
    ```graphql
    mutation { resolveReviewThread(input: { threadId: "THREAD_NODE_ID" }) { thread { isResolved } } }
    ```
    To find `THREAD_NODE_ID` for a given comment, query `repository.pullRequest.reviewThreads` and match on `comments.nodes.databaseId`.
-5. **Push all changes to the existing PR branch** — do not open a new issue or a new PR for the feedback response
-6. For items requiring human judgment (credentials, architectural decisions, security changes), add `need:human-review` to the PR and leave a comment identifying what is blocked
+7. **Push all changes to the existing PR branch** — do not open a new issue or a new PR for the feedback response
+8. For items requiring human judgment (credentials, architectural decisions, security changes), add `need:human-review` to the PR and leave a comment identifying what is blocked
 
-**Lifecycle contract for `Feedback Response` items:**
+**Lifecycle contract:**
 
 | Stage | Expected artifact |
 |---|---|
-| Workflow fires | Trigger comment posted on the existing PR (`<!-- plates-feedback-trigger:<agent> -->` + `@copilot` instructions) |
+| Babysitter cycle runs | Local `gh plate pr babysit` (or MCP `plate_pr_babysit`) detects actionable third-party feedback and can post a babysit trigger comment |
 | Copilot addresses feedback | Commits pushed to the same PR branch; review threads resolved |
 | Escalation | `need:human-review` label + blocking comment when human judgment is required |
 | Completion | `feedback-resolution` check is green (no unresolved review threads, no `CHANGES_REQUESTED` decision), then original PR merges through normal checks |
 
-`Feedback Response` labels remain available process metadata, but this workflow no longer creates feedback-task issues or follow-up response PRs. Feedback is addressed inline on the original PR branch.
+`Feedback Response` labels remain available process metadata. Feedback is addressed inline on the original PR branch.
 
-**Deduplication:** The workflow posts a tracking comment containing the marker `<!-- plates-feedback-trigger:<agent> -->` on the PR after each trigger. A 10-minute cooldown prevents duplicate Copilot trigger comments when a single review fires multiple parallel events.
+**Legacy workflow:** `.github/workflows/plates-address-pr-feedback.yml` is deprecated and manual-only (`workflow_dispatch`) for fallback troubleshooting. Do not rely on it for normal operations.
 
-**Configuration:** Set the `PLATE_PR_FEEDBACK_AGENTS` repository variable to a comma-separated list of GitHub logins whose feedback should be auto-addressed (e.g., `devin-ai-integration[bot],openhands-agent`). Set `COPILOT_TRIGGER_PAT` (classic PAT with `repo` scope) for reliable `@copilot` routing from Actions. When the variable is absent, the workflow matches common agent login patterns automatically.
+**Configuration:** Set the `PLATE_PR_FEEDBACK_AGENTS` repository variable to a comma-separated list of GitHub logins whose feedback should be babysat by default (e.g., `devin-ai-integration[bot],openhands-agent`).
 
-**Merge safety gate:** Require `.github/workflows/feedback-resolution-check.yml` (`feedback-resolution`) in branch protection for `main` so auto-merge waits until all active review threads are resolved.
+**Merge safety gate:** Require `.github/workflows/feedback-resolution-check.yml` (`feedback-resolution`) in branch protection for `main` so merge/auto-merge waits until all active review threads are resolved.
 
 ## Label Rules
 
@@ -204,7 +206,7 @@ Use labels as stable process metadata. Do not create ad hoc labels unless they c
 |---|---|
 | `Bug`, `Feature`, `Epic`, `Research`, `Design`, `Question`, `Audit`, `Migration`, `Feedback Response` | Exactly one required issue type label. |
 | `Bug`, `Feature`, `Documentation`, `Feedback Response` | Exactly one required pull request type label. |
-| `Feedback Response` | Combined issue + PR type for feedback-response process work when needed. Not auto-created by `plates-address-pr-feedback.yml` in the inline response flow. No `Epic:` label required. |
+| `Feedback Response` | Combined issue + PR type for feedback-response process work when needed. Not auto-created by the deprecated legacy workflow; no `Epic:` label required. |
 | `Epic: short-name` | Epic identity and feature grouping. Required on Epic and Feature issues. |
 | `area:*` | Stable subsystem or ownership area. |
 | `risk:*` | Review burden and release caution. |
