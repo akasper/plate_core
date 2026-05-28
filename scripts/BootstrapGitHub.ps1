@@ -63,6 +63,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+if ($SetDeleteBranchOnMerge -and $SkipDeleteBranchOnMerge) {
+    throw "Use either -SetDeleteBranchOnMerge or -SkipDeleteBranchOnMerge, not both."
+}
+
 $DefaultLabelsToRemove = @(
     "bug", "documentation", "duplicate", "enhancement",
     "good first issue", "help wanted", "invalid", "question", "wontfix"
@@ -78,10 +82,6 @@ if (-not (Test-Path $LabelsPath)) {
 
 & gh auth status
 if ($LASTEXITCODE -ne 0) { exit 1 }
-
-if ($SetDeleteBranchOnMerge -and $SkipDeleteBranchOnMerge) {
-    throw "Use either -SetDeleteBranchOnMerge or -SkipDeleteBranchOnMerge, not both."
-}
 
 function ConvertFrom-LabelsYml {
     param([string]$Path)

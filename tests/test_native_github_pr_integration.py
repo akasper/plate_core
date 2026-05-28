@@ -27,7 +27,8 @@ class NativeGitHubPrIntegrationTests(unittest.TestCase):
     def test_pr_issue_link_check_accepts_development_links(self):
         workflow = read_text(".github/workflows/pr-issue-link-check.yml")
 
-        self.assertIn("linkedPullRequests", workflow)
+        self.assertIn("CONNECTED_EVENT", workflow)
+        self.assertIn("timelineItems", workflow)
         self.assertIn("Development sidebar", workflow)
         self.assertIn("['Feature', 'Bug', 'Documentation']", workflow)
 

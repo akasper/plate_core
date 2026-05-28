@@ -17,6 +17,7 @@ OWNER_HANDLE=""
 REMOVE_DEFAULT_LABELS=false
 SET_DELETE_BRANCH_ON_MERGE=true
 SKIP_DELETE_BRANCH_ON_MERGE=false
+DELETE_BRANCH_ON_MERGE_FLAG_SET=false
 PROTECT_BRANCH=""
 INIT_WIKI=false
 
@@ -56,8 +57,25 @@ while [[ $# -gt 0 ]]; do
         --local-repo) LOCAL_REPO="$2"; shift 2 ;;
         --owner-handle) OWNER_HANDLE="$2"; shift 2 ;;
         --remove-default-labels) REMOVE_DEFAULT_LABELS=true; shift ;;
-        --set-delete-branch-on-merge) SET_DELETE_BRANCH_ON_MERGE=true; shift ;;
-        --skip-delete-branch-on-merge) SET_DELETE_BRANCH_ON_MERGE=false; SKIP_DELETE_BRANCH_ON_MERGE=true; shift ;;
+        --set-delete-branch-on-merge)
+            if $DELETE_BRANCH_ON_MERGE_FLAG_SET && $SKIP_DELETE_BRANCH_ON_MERGE; then
+                echo "Error: --set-delete-branch-on-merge and --skip-delete-branch-on-merge cannot be used together." >&2
+                exit 1
+            fi
+            SET_DELETE_BRANCH_ON_MERGE=true
+            DELETE_BRANCH_ON_MERGE_FLAG_SET=true
+            shift
+            ;;
+        --skip-delete-branch-on-merge)
+            if $DELETE_BRANCH_ON_MERGE_FLAG_SET && $SET_DELETE_BRANCH_ON_MERGE; then
+                echo "Error: --set-delete-branch-on-merge and --skip-delete-branch-on-merge cannot be used together." >&2
+                exit 1
+            fi
+            SET_DELETE_BRANCH_ON_MERGE=false
+            SKIP_DELETE_BRANCH_ON_MERGE=true
+            DELETE_BRANCH_ON_MERGE_FLAG_SET=true
+            shift
+            ;;
         --protect-branch) PROTECT_BRANCH="$2"; shift 2 ;;
         --init-wiki) INIT_WIKI=true; shift ;;
         -h|--help) usage ;;

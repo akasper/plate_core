@@ -12,7 +12,7 @@ body:
     id: epic_milestone
     attributes:
       label: Epic milestone
-      description: "Name the GitHub milestone that owns this feature. Create the milestone first if it does not exist yet."
+      description: "Name the GitHub milestone that owns this feature. Create it first from the repository Milestones tab or with `gh api repos/OWNER/REPO/milestones -f title='Q3 onboarding'` if needed."
       placeholder: "Q3 onboarding"
     validations:
       required: true

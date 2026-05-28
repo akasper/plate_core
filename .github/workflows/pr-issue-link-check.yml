@@ -42,30 +42,29 @@ jobs:
               return;
             }
 
-            const linkedIssueNumbers = new Set();
-
-            if (hasClosingKeyword) {
-              core.info('Closing keyword found — linked issue will auto-close on merge.');
-            }
-
-            let cursor = null;
-            do {
-              const data = await github.graphql(
+            let data;
+            try {
+              data = await github.graphql(
                 `
-                  query($owner: String!, $repo: String!, $cursor: String) {
+                  query($owner: String!, $repo: String!, $number: Int!) {
                     repository(owner: $owner, name: $repo) {
-                      issues(first: 100, after: $cursor, states: [OPEN, CLOSED]) {
-                        nodes {
-                          number
-                          linkedPullRequests(first: 20) {
-                            nodes {
-                              number
-                            }
+                      pullRequest(number: $number) {
+                        closingIssuesReferences(first: 20) {
+                          nodes {
+                            number
                           }
                         }
-                        pageInfo {
-                          hasNextPage
-                          endCursor
+                        timelineItems(first: 50, itemTypes: [CONNECTED_EVENT]) {
+                          nodes {
+                            ... on ConnectedEvent {
+                              subject {
+                                __typename
+                                ... on Issue {
+                                  number
+                                }
+                              }
+                            }
+                          }
                         }
                       }
                     }
@@ -74,26 +73,30 @@ jobs:
                 {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  cursor,
+                  number: pullRequest.number,
                 }
               );
+            } catch (error) {
+              core.setFailed(
+                `Unable to verify linked issues from the GitHub API (${error.message}). Check repository permissions or GitHub API status, then re-run this check.`
+              );
+              return;
+            }
 
-              for (const issue of data.repository.issues.nodes) {
-                if ((issue.linkedPullRequests?.nodes || []).some((pr) => pr.number === pullRequest.number)) {
-                  linkedIssueNumbers.add(issue.number);
-                }
+            const linkedIssueNumbers = new Set(
+              (data.repository.pullRequest.closingIssuesReferences?.nodes || []).map((issue) => issue.number)
+            );
+
+            for (const node of data.repository.pullRequest.timelineItems?.nodes || []) {
+              if (node.subject?.__typename === 'Issue') {
+                linkedIssueNumbers.add(node.subject.number);
               }
-
-              cursor = data.repository.issues.pageInfo.hasNextPage
-                ? data.repository.issues.pageInfo.endCursor
-                : null;
-            } while (cursor);
-
-            if (linkedIssueNumbers.size > 0) {
-              core.info(`Development sidebar linked issues found: ${Array.from(linkedIssueNumbers).join(', ')}`);
             }
 
             if (hasClosingKeyword || linkedIssueNumbers.size > 0) {
+              if (linkedIssueNumbers.size > 0) {
+                core.info(`Development sidebar or closing-reference issues found: ${Array.from(linkedIssueNumbers).join(', ')}`);
+              }
               core.info('Issue link requirement satisfied.');
               return;
             }
