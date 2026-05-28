@@ -68,7 +68,7 @@ def get_health(repo: str | None = None, client: GhClient | None = None) -> Healt
 
     # Binary artifact hygiene check (addresses Bug #90 / #91 regression guard)
     # Uses git ls-files to detect any tracked .pyc, __pycache__, or common binaries
-    binary_artifacts_tracked = 1  # TEMP for TDD red test phase (will be fixed in next commit)
+    binary_artifacts_tracked = 0
     try:
         proc = subprocess.run(
             ["git", "ls-files", "--cached"],
@@ -80,7 +80,11 @@ def get_health(repo: str | None = None, client: GhClient | None = None) -> Healt
         if proc.returncode == 0:
             tracked_files = proc.stdout.splitlines()
             forbidden_suffixes = (".pyc", ".pyo", ".pyd", ".so", ".dll", ".dylib")
-            # real count ignored during red phase
+            binary_artifacts_tracked = sum(
+                1
+                for f in tracked_files
+                if f.endswith(forbidden_suffixes) or "__pycache__" in f or "/__pycache__/" in f
+            )
     except Exception:
         binary_artifacts_tracked = -1  # unknown in this environment
 
