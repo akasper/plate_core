@@ -236,26 +236,34 @@ Duplicate
         local_sections = {s["name"]: s for s in self._find_marked_sections(local)}
         upstream_sections = {s["name"]: s for s in self._find_marked_sections(upstream)}
         base_sections = {s["name"]: s for s in self._find_marked_sections(base)}
-        
-        # Start with upstream
-        result = upstream
-        
-        # For each marked section, if local edited it, preserve local value
+
+        # Start with upstream split into lines
+        result_lines = upstream.split("\n")
+
+        # Collect sections that need local content restored, sorted bottom-to-top
+        # so that earlier line indices remain valid as we splice lines.
+        replacements = []
         for name, upstream_section in upstream_sections.items():
             if name in local_sections and name in base_sections:
                 local_section = local_sections[name]
                 base_section = base_sections[name]
-                
-                # If local differs from base, user edited it
+
+                # If local differs from base, user edited it — preserve local value
                 if local_section["content"] != base_section["content"]:
-                    # Replace upstream section content with local
-                    # Keep upstream markers and surrounding content
-                    result = result.replace(
-                        upstream_section["content"],
-                        local_section["content"],
-                    )
-        
-        return result
+                    replacements.append((upstream_section, local_section["content"]))
+
+        # Process from the end of the document toward the beginning so that
+        # splicing earlier sections does not shift the line indices of later ones.
+        replacements.sort(key=lambda r: r[0]["start_line"], reverse=True)
+
+        for upstream_section, local_content in replacements:
+            # start_line is the marker line; content lines follow immediately after
+            content_start = upstream_section["start_line"] + 1
+            content_end = upstream_section["end_line"]  # exclusive end (end marker line)
+            new_content_lines = local_content.split("\n") if local_content else []
+            result_lines[content_start:content_end] = new_content_lines
+
+        return "\n".join(result_lines)
 
 
 class MarkerAuthorizationTests(unittest.TestCase):
