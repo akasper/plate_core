@@ -2,7 +2,8 @@
 # Bootstrap a new PLATE repository using the GitHub CLI.
 #
 # Syncs canonical labels, removes conflicting default GitHub labels, replaces
-# the CODEOWNERS placeholder, enables delete-branch-on-merge, applies
+# the CODEOWNERS placeholder, enables delete-branch-on-merge by default,
+# applies
 # conservative baseline branch protection, and optionally initializes the wiki.
 #
 # Requirements: gh (GitHub CLI) >= 2.x, git, awk, sed
@@ -14,7 +15,8 @@ REPO=""
 LOCAL_REPO="."
 OWNER_HANDLE=""
 REMOVE_DEFAULT_LABELS=false
-SET_DELETE_BRANCH_ON_MERGE=false
+SET_DELETE_BRANCH_ON_MERGE=true
+SKIP_DELETE_BRANCH_ON_MERGE=false
 PROTECT_BRANCH=""
 INIT_WIKI=false
 
@@ -39,7 +41,8 @@ Options:
   --local-repo PATH             Path to local repository checkout (default: .)
   --owner-handle HANDLE         GitHub username or team for CODEOWNERS (e.g. @your-username)
   --remove-default-labels       Delete conflicting default GitHub labels
-  --set-delete-branch-on-merge  Enable delete-branch-on-merge
+  --set-delete-branch-on-merge  Enable delete-branch-on-merge (default)
+  --skip-delete-branch-on-merge Leave merged branches in place
   --protect-branch BRANCH       Apply conservative baseline protection to BRANCH
   --init-wiki                   Initialize the wiki from docs/wiki/Home.md
   -h, --help                    Show this help message
@@ -54,6 +57,7 @@ while [[ $# -gt 0 ]]; do
         --owner-handle) OWNER_HANDLE="$2"; shift 2 ;;
         --remove-default-labels) REMOVE_DEFAULT_LABELS=true; shift ;;
         --set-delete-branch-on-merge) SET_DELETE_BRANCH_ON_MERGE=true; shift ;;
+        --skip-delete-branch-on-merge) SET_DELETE_BRANCH_ON_MERGE=false; SKIP_DELETE_BRANCH_ON_MERGE=true; shift ;;
         --protect-branch) PROTECT_BRANCH="$2"; shift 2 ;;
         --init-wiki) INIT_WIKI=true; shift ;;
         -h|--help) usage ;;
@@ -179,6 +183,8 @@ fi
 if $SET_DELETE_BRANCH_ON_MERGE; then
     gh repo edit "$REPO" --delete-branch-on-merge
     echo "Enabled delete-branch-on-merge."
+elif $SKIP_DELETE_BRANCH_ON_MERGE; then
+    echo "Skipped delete-branch-on-merge per flag."
 fi
 
 # Apply baseline branch protection -----------------------------------------------
@@ -249,6 +255,6 @@ echo "Manual follow-up still required:"
 echo "1. Replace placeholder product language in SPEC.md, CURRENT.md, and public-facing docs."
 echo "2. Decide whether branch protection should also require approvals, code-owner review, status checks, or linear history."
 echo "3. Configure GitHub Projects fields for planning state such as status, priority, owner, iteration, target date, and release target."
-echo "4. Create real Epic: short-name labels and the first Epic issue."
+echo "4. Create the first real Epic milestone and, if needed, an optional companion Epic issue."
 echo "5. Tune CI, release, pages, and audit workflows for the project stack."
 echo "6. Decide whether to enable wiki sync and, if so, create PLATE_WIKI_SYNC_ENABLED and WIKI_TOKEN."

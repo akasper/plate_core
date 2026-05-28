@@ -2,59 +2,113 @@ name: PLATE PR Issue Link Check
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled, milestoned, demilestoned]
 
 permissions:
   contents: read
+  issues: read
   pull-requests: write
 
 jobs:
-  check-closing-keyword:
+  check-issue-links:
     runs-on: ubuntu-latest
     steps:
-      - name: Check for issue closing keyword
+      - name: Check for linked issue
         uses: actions/github-script@v8
         with:
           script: |
-            const body = context.payload.pull_request.body || '';
-            const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
+            const pullRequest = context.payload.pull_request;
+            const body = pullRequest?.body || '';
+            const labels = (pullRequest?.labels || []).map((l) => l.name);
+
+            if (!pullRequest) {
+              core.info('No pull request payload found.');
+              return;
+            }
 
             // PRs explicitly labeled no-issue are exempt (dependency bumps, hotfixes, etc.)
-            if (labels.includes('no-issue')) {
-              core.info('PR labeled no-issue — closing keyword check skipped.');
+            if (labels.includes('no-issue') || labels.includes('Feedback Response')) {
+              core.info('PR is exempt from linked issue enforcement.');
               return;
             }
 
             // GitHub's native closing keywords (case-insensitive), optionally followed by a URL or #number
             const closingPattern = /\b(closes?|closed|fixe?s?|fixed|resolve[sd]?)\s+(#\d+|https?:\/\/github\.com\/[^\s]+\/issues\/\d+)/i;
+            const hasClosingKeyword = closingPattern.test(body);
+            const requiresIssue = labels.some((l) => ['Feature', 'Bug', 'Documentation'].includes(l));
 
-            if (closingPattern.test(body)) {
-              core.info('Closing keyword found — linked issue will auto-close on merge.');
+            if (!requiresIssue) {
+              core.info('PR type does not require linked issue enforcement.');
               return;
             }
 
-            // Feature and Bug PRs are expected to always link an issue; fail for those.
-            // Feedback Response PRs are auto-generated and exempt from closing keyword requirement.
-            const requiresIssue = labels.some((l) => ['Feature', 'Bug'].includes(l));
+            const linkedIssueNumbers = new Set();
+
+            if (hasClosingKeyword) {
+              core.info('Closing keyword found — linked issue will auto-close on merge.');
+            }
+
+            let cursor = null;
+            do {
+              const data = await github.graphql(
+                `
+                  query($owner: String!, $repo: String!, $cursor: String) {
+                    repository(owner: $owner, name: $repo) {
+                      issues(first: 100, after: $cursor, states: [OPEN, CLOSED]) {
+                        nodes {
+                          number
+                          linkedPullRequests(first: 20) {
+                            nodes {
+                              number
+                            }
+                          }
+                        }
+                        pageInfo {
+                          hasNextPage
+                          endCursor
+                        }
+                      }
+                    }
+                  }
+                `,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  cursor,
+                }
+              );
+
+              for (const issue of data.repository.issues.nodes) {
+                if ((issue.linkedPullRequests?.nodes || []).some((pr) => pr.number === pullRequest.number)) {
+                  linkedIssueNumbers.add(issue.number);
+                }
+              }
+
+              cursor = data.repository.issues.pageInfo.hasNextPage
+                ? data.repository.issues.pageInfo.endCursor
+                : null;
+            } while (cursor);
+
+            if (linkedIssueNumbers.size > 0) {
+              core.info(`Development sidebar linked issues found: ${Array.from(linkedIssueNumbers).join(', ')}`);
+            }
+
+            if (hasClosingKeyword || linkedIssueNumbers.size > 0) {
+              core.info('Issue link requirement satisfied.');
+              return;
+            }
 
             const message = [
-              '## ⚠️ No issue closing keyword detected',
+              '## ⚠️ No linked issue detected',
               '',
-              'PLATE requires every PR that resolves an issue to include a closing keyword in the PR body:',
+              'PLATE requires `Feature`, `Bug`, and issue-driven `Documentation` PRs to link at least one tracked issue.',
               '',
-              '```',
-              'Closes #N',
-              '```',
+              'Accepted link methods:',
+              '- `Closes #N` / `Fixes #N` / `Resolves #N` in the PR body when merge should close the issue',
+              '- A GitHub Development sidebar link when the issue should stay open after the PR lands',
               '',
-              'Supported keywords: `Closes`, `Fixes`, `Resolves` (case-insensitive).',
-              '',
-              requiresIssue
-                ? '**This PR is labeled `Feature` or `Bug` and must link a closing issue. Please add `Closes #N` to the PR body.**'
-                : 'If this PR does not resolve a tracked issue, add the `no-issue` label to silence this warning.',
+              '**This PR is labeled `Feature`, `Bug`, or `Documentation` and must link at least one issue.**',
+              'Use `no-issue` only for true chores, maintenance, or other PRs that intentionally do not resolve tracked work.',
             ].join('\n');
 
-            if (requiresIssue) {
-              core.setFailed(message);
-            } else {
-              core.warning(message);
-            }
+            core.setFailed(message);
