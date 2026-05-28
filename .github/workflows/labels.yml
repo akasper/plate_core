@@ -9,8 +9,8 @@ permissions:
   pull-requests: read
 
 jobs:
-  validate:
-    name: validate
+  labels:
+    name: labels
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     # This is a fast, critical gate. Cancel stale runs immediately on new label
