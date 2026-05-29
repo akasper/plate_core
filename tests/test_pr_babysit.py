@@ -114,6 +114,65 @@ class PrBabysitTests(unittest.TestCase):
         graphql_call = fake.calls[0]
         self.assertIn("variables[threadId]", graphql_call[2])
 
+    def test_babysit_uses_desc_sort_on_comments_api_to_find_recent_markers(self):
+        """Regression test for the pagination/sort bug reported by Devin in thread PRRT_kwDOSn5ouc6Fic4A.
+
+        Without &sort=created&direction=desc, the default ascending order means recent babysit
+        markers (posted after >100 comments on the PR) are not in the first per_page=100 page.
+        This test asserts the query string construction includes the reverse sort so the check
+        for existing marker sees recent comments first. Uses act=True + actionable thread to
+        exercise the _has_existing_babysit_comment path (the call is conditional on posting logic).
+        """
+        repo = "akasper/plate"
+        pr = 120
+        graphql_endpoint = "graphql"
+        threads_payload = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "TDEVIN",
+                                    "isResolved": False,
+                                    "isOutdated": False,
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "databaseId": 999,
+                                                "body": "fix the sort",
+                                                "url": "https://example.com/tdevin",
+                                                "author": {"login": "devin-ai-integration[bot]"},
+                                            }
+                                        ]
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        fake = _FakeClient(
+            responses={
+                (graphql_endpoint, "POST"): threads_payload,
+                # Note: no comments GET key provided; will use default {} -> no marker -> would post
+                (f"repos/{repo}/issues/{pr}/comments", "POST"): {"html_url": "https://example.com/trigger"},
+            }
+        )
+        report = babysit_pr(repo=repo, pr_number=pr, act=True, client=fake)
+        self.assertEqual(report.actionable_threads, 1)
+        comments_calls = [c for c in fake.calls if "/comments" in c[0] and "issues" in c[0] and "POST" not in str(c)]
+        self.assertEqual(len(comments_calls), 1, "should query comments GET for existing marker check")
+        endpoint = comments_calls[0][0]
+        self.assertIn("per_page=100", endpoint)
+        self.assertIn("sort=created", endpoint)
+        self.assertIn("direction=desc", endpoint)
+        self.assertTrue(
+            "sort=created&direction=desc" in endpoint,
+            f"endpoint must include reverse sort for recent marker detection: {endpoint}"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
