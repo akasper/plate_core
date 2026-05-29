@@ -45,6 +45,8 @@ This keeps titles short, scannable, and focused on the actual change. See #135 (
 
 **Autonomous mode** (see §Autonomous Mode below) is the formal toggle for the self-merge aspect of this doctrine. The pacing and PR-discipline rules apply in both modes.
 
+**PR Title Conventions.** Use clean, descriptive titles that summarize the change without legacy status prefixes. Do not use `[WIP]`, `WIP:`, `[DRAFT]`, `DRAFT:`, or similar prefixes in PR titles. GitHub provides native first-class Draft PR status for work-in-progress signaling. Create PRs with `gh pr create --draft` or toggle Draft status in the GitHub UI. Draft status is reversible, keeps the title clean, and integrates properly with search, notifications, and commit history. Prefix-based conventions pollute PR lists and weaken readability at a glance.
+
 ## Required Work Loop
 
 Follow the loop that matches the issue type.
