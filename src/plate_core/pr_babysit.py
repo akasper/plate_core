@@ -118,7 +118,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
 
 
 def _has_existing_babysit_comment(client: GhClient, repo: str, pr_number: int) -> bool:
-    comments = client.api(f"repos/{repo}/issues/{pr_number}/comments?per_page=100")
+    comments = client.api(f"repos/{repo}/issues/{pr_number}/comments?per_page=100&sort=created&direction=desc")
     return any(_BABYSIT_MARKER in ((c or {}).get("body") or "") for c in comments or [])
 
 
