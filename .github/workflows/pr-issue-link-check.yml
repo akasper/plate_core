@@ -66,6 +66,18 @@ jobs:
                             }
                           }
                         }
+                        disconnectedItems: timelineItems(first: 50, itemTypes: [DISCONNECTED_EVENT]) {
+                          nodes {
+                            ... on DisconnectedEvent {
+                              subject {
+                                __typename
+                                ... on Issue {
+                                  number
+                                }
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -90,6 +102,14 @@ jobs:
             for (const node of data.repository.pullRequest.timelineItems?.nodes || []) {
               if (node.subject?.__typename === 'Issue') {
                 linkedIssueNumbers.add(node.subject.number);
+              }
+            }
+
+            // Subtract DISCONNECTED_EVENTs so that sidebar unlinks are correctly detected as unlinked.
+            // Re-connects work because a later CONNECTED_EVENT will re-add the number (timeline order is chronological).
+            for (const node of data.repository.pullRequest.disconnectedItems?.nodes || []) {
+              if (node.subject?.__typename === 'Issue') {
+                linkedIssueNumbers.delete(node.subject.number);
               }
             }
 
