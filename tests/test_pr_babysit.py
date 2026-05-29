@@ -87,7 +87,7 @@ class PrBabysitTests(unittest.TestCase):
         }
         fake = _FakeClient(
             responses={
-                (f"repos/{repo}/issues/{pr}/comments?per_page=100", "GET"): [],
+                (f"repos/{repo}/issues/{pr}/comments?per_page=100&sort=created&direction=desc", "GET"): [],
                 (graphql_endpoint, "POST"): threads_payload,
                 (f"repos/{repo}/issues/{pr}/comments", "POST"): {"html_url": "https://example.com/posted"},
             }
