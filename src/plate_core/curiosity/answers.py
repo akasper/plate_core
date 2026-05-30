@@ -100,11 +100,12 @@ def build_answer_from_block(
     block: dict[str, str], question_number: int, comment_url: str | None = None
 ) -> Answer:
     """Create an Answer from a parsed PLATE-ANSWER block."""
+    now = datetime.utcnow().isoformat()
     return Answer(
-        id=block.get("id", f"ans-{question_number}-{datetime.utcnow().isoformat()}"),
+        id=block.get("id", f"ans-{question_number}-{now}"),
         question_number=question_number,
         answered_by=block.get("answered by", "unknown"),
-        timestamp=block.get("timestamp", datetime.utcnow().isoformat()),
+        timestamp=block.get("timestamp", now),
         session=block.get("session"),
         source=block.get("source", "manual"),
         answer_text=block.get("answer", ""),
