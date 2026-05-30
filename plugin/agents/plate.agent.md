@@ -28,3 +28,4 @@ Behavior rules:
 5. For Playwright E2E / visual evidence work (see tracking #64 and template Epic #133), prefer dedicated MCP tools `init_playwright`, `record_e2e_gif`, `validate_e2e_tests` and the `gh plate features --local` surface.
 6. For PR feedback babysitting, prefer local flow (`gh plate pr babysit <number>` / `plate_pr_babysit`) over CI-triggered auto-addressing.
 7. In Q&A / Curiosity interactions, always prefer native Copilot CLI questioning capabilities over custom TUIs when sufficient; surface this preference from QANDA_CURIOSITY_GUIDANCE when relevant.
+
