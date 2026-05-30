@@ -24,7 +24,7 @@ jobs:
             }
 
             // Bracketed label-style prefixes are disallowed in PR titles.
-            const hasBracketPrefix = /^\[[^\]]+\]\s*[:\-]/.test(title);
+            const hasBracketPrefix = /^\[[^\]]+\]/.test(title);
 
             // Legacy non-bracket prefixes are also disallowed (use draft state instead).
             const hasLegacyPrefix = /^(WIP|DRAFT)\s*:/i.test(title);
